@@ -16,7 +16,7 @@ setup(
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
         (os.path.join('share', package_name, 'weights'), glob('weights/*')),
     ],
-    install_requires=['setuptools', 'torch', 'numpy'],
+    install_requires=['setuptools', 'torch', 'numpy', 'torchrl', 'tensordict'],
     zip_safe=True,
     maintainer='kyo',
     maintainer_email='s21c1135sc@s.chibakoudai.jp',
