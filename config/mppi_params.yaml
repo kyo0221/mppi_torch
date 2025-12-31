@@ -4,5 +4,5 @@ mppi_node:
     num_samples: 1000
     lambda_weight: 1.0
     dt: 0.1
-    model_path: "weights/dynamics_model.pth"
+    model_path: "weights/dynamics_model.pt"
     control_frequency: 10.0

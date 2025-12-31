@@ -6,25 +6,9 @@ from nav_msgs.msg import Path
 from geometry_msgs.msg import Twist, Vector3
 from std_msgs.msg import Float64MultiArray
 import torch
-import torch.nn as nn
 import numpy as np
 import os
 from ament_index_python.packages import get_package_share_directory
-
-
-class DynamicsModel(nn.Module):
-    def __init__(self, input_dim=3, hidden_dim=64, output_dim=3):
-        super(DynamicsModel, self).__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, output_dim)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.relu(self.fc1(x))
-        x = self.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
 
 
 class MPPIController:
@@ -85,7 +69,7 @@ class MPPINode(Node):
         self.declare_parameter('num_samples', 1000)
         self.declare_parameter('lambda_weight', 1.0)
         self.declare_parameter('dt', 0.1)
-        self.declare_parameter('model_path', 'weights/dynamics_model.pth')
+        self.declare_parameter('model_path', 'weights/dynamics_model.pt')
         self.declare_parameter('control_frequency', 10.0)
 
         self.horizon = self.get_parameter('horizon').value
@@ -97,17 +81,16 @@ class MPPINode(Node):
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        self.dynamics_model = DynamicsModel().to(self.device)
         pkg_share = get_package_share_directory('mppi_torch')
         full_model_path = os.path.join(pkg_share, model_path)
 
         if os.path.exists(full_model_path):
-            self.dynamics_model.load_state_dict(torch.load(full_model_path, map_location=self.device))
+            self.dynamics_model = torch.jit.load(full_model_path, map_location=self.device)
+            self.dynamics_model.eval()
             self.get_logger().info(f'Loaded model from {full_model_path}')
         else:
-            self.get_logger().warn(f'Model file not found at {full_model_path}, using untrained model')
-
-        self.dynamics_model.eval()
+            self.get_logger().error(f'Model file not found at {full_model_path}')
+            raise FileNotFoundError(f'Model file not found at {full_model_path}')
 
         self.mppi = MPPIController(
             self.dynamics_model,

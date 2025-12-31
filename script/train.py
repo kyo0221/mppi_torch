@@ -6,21 +6,12 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import os
+import sys
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, script_dir)
 
-class DynamicsModel(nn.Module):
-    def __init__(self, input_dim=5, hidden_dim=64, output_dim=3):
-        super(DynamicsModel, self).__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, output_dim)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.relu(self.fc1(x))
-        x = self.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+from network import Network
 
 
 class RobotDynamicsDataset(Dataset):
@@ -88,7 +79,7 @@ def train_model(data_file, output_path, num_epochs=100, batch_size=64, learning_
     dataset = RobotDynamicsDataset(data_file)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    model = DynamicsModel().to(device)
+    model = Network().to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -111,8 +102,12 @@ def train_model(data_file, output_path, num_epochs=100, batch_size=64, learning_
         if (epoch + 1) % 10 == 0:
             print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {avg_loss:.6f}')
 
+    model.eval()
+    model.cpu()
+    scripted_model = torch.jit.script(model)
+
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    torch.save(model.state_dict(), output_path)
+    scripted_model.save(output_path)
     print(f'Model saved to {output_path}')
 
 
@@ -121,7 +116,7 @@ if __name__ == '__main__':
     pkg_dir = os.path.dirname(script_dir)
 
     data_file = os.path.join(pkg_dir, 'data', 'robot_dynamics_data.npz')
-    output_path = os.path.join(pkg_dir, 'weights', 'dynamics_model.pth')
+    output_path = os.path.join(pkg_dir, 'weights', 'dynamics_model.pt')
 
     os.makedirs(os.path.join(pkg_dir, 'data'), exist_ok=True)
 
